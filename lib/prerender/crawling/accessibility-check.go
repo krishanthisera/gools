@@ -1,15 +1,28 @@
 package crawling
 
 import (
+	"context"
 	"net/http"
+	"time"
 )
 
-func CrawlingTest(url string, userAgent string, statusCode int) (bool, error) {
+func CrawlingTest(ctx context.Context, url string, userAgent string, timeOut int) *CrawlResult {
 
-	req, err := http.NewRequest("GET", url, nil)
+	ttlCtx, _ := context.WithTimeout(ctx, time.Duration(timeOut)*time.Second)
+
+	c, cancel := context.WithCancel(ttlCtx)
+
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(c, "GET", url, nil)
 
 	if err != nil {
-		return false, err
+		return &CrawlResult{
+			Url:        url,
+			StatusCode: 0,
+			Success:    false,
+			Error:      err,
+		}
 	}
 
 	req.Header.Set("User-Agent", userAgent)
@@ -19,12 +32,18 @@ func CrawlingTest(url string, userAgent string, statusCode int) (bool, error) {
 	resp, err := client.Do(req)
 
 	if err != nil {
-		return false, err
+		return &CrawlResult{
+			Url:        url,
+			StatusCode: resp.StatusCode,
+			Success:    false,
+			Error:      err,
+		}
 	}
 
-	if resp.StatusCode != statusCode {
-		return false, nil
+	return &CrawlResult{
+		Url:        url,
+		StatusCode: resp.StatusCode,
+		Success:    true,
+		Error:      nil,
 	}
-
-	return true, nil
 }
